@@ -20,7 +20,7 @@ Add disko-images as a NixOS module (using flakes):
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    disko-images.url = "path:/home/chris/disko-images";
+    disko-images.url = "github:chrillefkr/disko-images";
   };
   outputs = { self, nixpkgs, disko, disko-images, ... } @inputs:
   let
