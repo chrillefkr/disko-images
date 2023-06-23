@@ -1,4 +1,4 @@
-{ lib, pkgs, config, postVM ? "", size ? "2048M", includeChannel ? false, postInstallScript ? "", compress ? false }:
+{ lib, pkgs, config, postVM ? "", size ? "2048M", includeChannel ? false, postInstallScript ? "", compress ? false, emulateUEFI ? false }:
 let
   compress_args = if compress then "-c" else "";
   channelSources =
@@ -41,6 +41,9 @@ let
   disk_paths = with builtins; map (disk: disk.device) (attrValues config.disko.devices.disk);
   disk_names = with builtins; attrNames config.disko.devices.disk;
 
+  OVMF_CODE = "${pkgs.OVMF.fd}/" + ( if pkgs.system == "x86_64-linux" then "FV/OVMF_CODE.fd" else "FV/AAVMF_CODE.fd" );
+  OVMF_VARS = "${pkgs.OVMF.fd}/" + ( if pkgs.system == "x86_64-linux" then "FV/OVMF_VARS.fd" else "FV/AAVMF_VARS.fd" );
+
   images = (
     pkgs.vmTools.override {
       rootModules =
@@ -53,30 +56,60 @@ let
     pkgs.runCommand "${config.system.name}"
       {
         memSize = 1024;
-        QEMU_OPTS = toString (builtins.map (disk_name: "-drive file=${builtins.baseNameOf disk_name}.qcow2,if=virtio,cache=unsafe,werror=report") disk_names);
+        QEMU_OPTS = lib.strings.escapeShellArgs (lib.lists.flatten (
+          (builtins.map (disk_name: ["-drive" "file=${builtins.baseNameOf disk_name}.qcow2,if=virtio,cache=unsafe,werror=report"]) disk_names)
+          ++
+          (
+            lib.optionals emulateUEFI [
+              #"-pflash" "${OVMF_CODE}"
+              #"-bios" "${OVMF_CODE}"
+              "-smbios" "type=0,uefi=on"
+              "-smbios" "type=1,uuid=43d206e8-14eb-4011-bbba-be831e68e032"
+              "-drive" "if=pflash,unit=0,format=raw,readonly=on,file=${OVMF_CODE}"
+              "-drive" "if=pflash,unit=1,format=qcow2,id=drive-efidisk0,file=efidisk.qcow2"
+            ]
+          )
+          ));
         preVM = ''
           set -x
           PATH=$PATH:${pkgs.qemu_kvm}/bin
           mkdir -p $out
 
+        '' + (lib.strings.optionalString emulateUEFI ''
+          echo "Creating efidisk.qcow2 from ${OVMF_VARS} with size 64M"
+          ${pkgs.qemu}/bin/qemu-img convert -cp -f raw -O qcow2 ${OVMF_VARS} efidisk.qcow2
+          ${pkgs.qemu}/bin/qemu-img resize efidisk.qcow2 64M
+        '') + ''
+
           for disk_image in ${ toString (map baseNameOf disk_names) }; do
             echo "Creating ''${disk_image}.qcow2 with size ${toString size}"
-            qemu-img create -f qcow2 "''${disk_image}.qcow2" ${toString size}
+            ${pkgs.qemu}/bin/qemu-img create -f qcow2 "''${disk_image}.qcow2" ${toString size}
           done
         '';
 
         postVM = ''
           set -x
+
+        '' + (lib.strings.optionalString emulateUEFI ''
+          echo Compressing efidisk.qcow2
+          ${pkgs.qemu}/bin/qemu-img convert -cp -f qcow2 -O qcow2 efidisk.qcow2 ''${out}/efidisk.qcow2
+        '') + ''
+
           for disk_image in ${ toString (map baseNameOf disk_names) }; do
             echo Compressing "''${disk_image}.qcow2"
             ${pkgs.qemu}/bin/qemu-img convert -p -f qcow2 -O qcow2 ${compress_args} "''${disk_image}.qcow2" "''${out}/''${disk_image}.qcow2"
           done
           ${postVM}
         '';
-      }
+      } (
       ''
       export PATH=${tools}:$PATH
       set -x
+
+      '' + (lib.strings.optionalString emulateUEFI ''
+      # Mount efivars
+      mount -t efivarfs efivarfs /sys/firmware/efi/efivars
+      '') + ''
 
       # Create symlinks with disko device paths pointing to /dev/vdX
       # It's stupid, but it works
@@ -131,7 +164,7 @@ let
       # for zpool in ''${toString ( builtins.attrNames (lib.attrValues config.disko.devices.zpool))}; do
 
       # done
-    ''
+    '')
   );
 in
   {

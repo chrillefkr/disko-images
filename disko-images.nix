@@ -8,7 +8,7 @@ let
     inherit lib pkgs;
     config = origConfig;
     size = cfg.defaultDiskAllocSize;
-    inherit (cfg) compress;
+    inherit (cfg) compress emulateUEFI;
   };
   cfg = config.diskoImages;
 in
@@ -33,6 +33,14 @@ in
         Initial qcow2 image file size allocation (in MB) for each disko.devices.disk.xyz. Defaults to config.diskoImages.defaultDiskAllocSize
       '';
     };
+     emulateUEFI = mkOption {
+       default = config.boot.loader.efi.canTouchEfiVariables;
+       type = types.bool;
+       defaultText = literalExpression "config.boot.loader.efi.canTouchEfiVariables";
+       description = lib.mdDoc ''
+         If true will emulate UEFI for storing EFI variables, e.g. boot entries. Variables will be stored as efidisk.qcow2
+       '';
+     };
   };
 
   config = {
