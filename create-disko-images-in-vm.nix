@@ -84,6 +84,7 @@ let
       index=0
       for to in ${ toString disk_paths }; do
         from="''${local_disks[$index]}"
+        if [ "$from" == "$to" ]; then continue; fi
         mkdir -p $( dirname $( realpath -s "$to" ) )
         ln -vs "''${from}" "''${to}"
         for i in $(seq 0 10); do
