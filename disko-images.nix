@@ -8,7 +8,7 @@ let
     inherit lib pkgs;
     config = origConfig;
     size = cfg.defaultDiskAllocSize;
-    inherit (cfg) compress emulateUEFI;
+    inherit (cfg) compress emulateUEFI includeChannel memory;
   };
   cfg = config.diskoImages;
 in
@@ -18,6 +18,19 @@ in
       default = true;
       description = lib.mdDoc ''
         Compresses qcow2 image as final step when enabled
+      '';
+    };
+    includeChannel = mkOption {
+      default = true;
+      description = lib.mdDoc ''
+        Whether to install nixpkgs.
+      '';
+    };
+    memory = mkOption {
+      default = 1024;
+      description = lib.mdDoc ''
+        How much memory (RAM) in MiB to allocate for VM during build.
+        Some builds require more memory.
       '';
     };
     defaultDiskAllocSize = mkOption {

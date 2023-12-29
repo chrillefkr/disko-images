@@ -1,4 +1,4 @@
-{ lib, pkgs, config, postVM ? "", size ? "2048M", includeChannel ? false, postInstallScript ? "", compress ? false, emulateUEFI ? false }:
+{ lib, pkgs, config, postVM ? "", size ? "2048M", includeChannel ? false, postInstallScript ? "", compress ? false, emulateUEFI ? false, memory ? 1024, }:
 let
   compress_args = if compress then "-c" else "";
   channelSources =
@@ -55,7 +55,7 @@ let
   ).runInLinuxVM (
     pkgs.runCommand "${config.system.name}"
       {
-        memSize = 1024;
+        memSize = memory;
         QEMU_OPTS = lib.strings.escapeShellArgs (lib.lists.flatten (
           (builtins.map (disk_name: ["-drive" "file=${builtins.baseNameOf disk_name}.qcow2,if=virtio,cache=unsafe,werror=report"]) disk_names)
           ++
@@ -141,10 +141,10 @@ let
       nixos-install \
         --root /mnt \
         --no-root-passwd \
-        --system ${config.system.build.toplevel} \
         --substituters "" \
+        --system ${config.system.build.toplevel} \
         ${lib.optionalString includeChannel ''--channel ${channelSources}''}
-
+      
       # Run postInstallScript
       ${postInstallScript}
 
