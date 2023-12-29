@@ -57,6 +57,6 @@ in
   };
 
   config = {
-    system.build.diskoImages = diskoImages.images;
+    system.build.diskoPartyImages = diskoImages.images;
   };
 }
