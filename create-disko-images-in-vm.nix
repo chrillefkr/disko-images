@@ -139,14 +139,20 @@ let
       nix-store --load-db < ${closureInfo}/registration
 
       nixos-install \
+        -v \
         --root /mnt \
         --no-root-passwd \
         --substituters "" \
+        --option binary-caches "" \
+        --keep-going \
         --system ${config.system.build.toplevel} \
         ${lib.optionalString includeChannel ''--channel ${channelSources}''}
-      
+
       # Run postInstallScript
       ${postInstallScript}
+
+      # Clean /tmp
+      find /mnt/tmp -mindepth 1 -delete
 
       # Clean up disk from unused sectors
       fstrim -av
@@ -154,8 +160,10 @@ let
       # Unmount all filesystems
       umount -Rv /mnt || :
 
-      # Export all zfs zpools
+      # Trim and export all zfs zpools
       for zpool in ${toString ( builtins.attrNames config.disko.devices.zpool ) }; do
+        echo Trimming zpool "$zpool"
+        zpool trim -w "$zpool"
         echo Exporting zpool "$zpool"
         zpool export "$zpool"
       done
