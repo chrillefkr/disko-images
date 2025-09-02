@@ -1,3 +1,6 @@
+This project is discontinued.
+Upstream disko has got [its own implementation](https://github.com/nix-community/disko/blob/a5c4f2ab72e3d1ab43e3e65aa421c6f2bd2e12a1/docs/disko-images.md) for creating disk images.
+
 # Disko Images
 
 Create disk image files from NixOS + [disko](https://github.com/nix-community/disko) configuration.
